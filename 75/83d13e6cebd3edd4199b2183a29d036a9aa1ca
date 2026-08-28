@@ -1,0 +1,41 @@
+README.md
+  s_0c428a8880955a::t_6dee6ddbe6c804 31-37,46-47,63,133,135-137
+cloudflare.config.ts
+  s_0c428a8880955a::t_8521a4508a91a2 10,27,37-38,43-45,49-51
+scripts/admin-password.mjs
+  s_0c428a8880955a::t_9ceeaca94dd873 6
+site/index.html
+  s_0c428a8880955a::t_13d218e7d2d7ba 6,43,45-48
+src/entrypoints/record.ts
+  s_0c428a8880955a::t_2bb5fc1f75ebfb 3,25,115
+src/img.ts
+  s_0c428a8880955a::t_07714a5d0f450a 16-18
+src/labels.ts
+  s_0c428a8880955a::t_89140ebfb2d2b5 137-155
+src/scoped.ts
+  s_0c428a8880955a::t_2f7b0daf82ce3b 108-117
+src/sniff.ts
+  s_0c428a8880955a::t_18070afa070840 12,26,55
+test/img.test.ts
+  s_0c428a8880955a::t_5b1bf5f6ee3c4e 76-79,175-186
+test/scoped.test.ts
+  s_0c428a8880955a::t_ece60a79f8b0ca 77,91-94,127-136,197
+test/sniff.test.ts
+  s_0c428a8880955a::t_ab113b7c73532f 31-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7583d13e6cebd3edd4199b2183a29d036a9aa1ca",
+  "prompts": {},
+  "sessions": {
+    "s_0c428a8880955a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a047ad-8cf9-75a2-b84e-8f37f0aeec37",
+        "model": "unknown"
+      },
+      "human_author": "Matt Kane <mkane@cloudflare.com>"
+    }
+  }
+}
