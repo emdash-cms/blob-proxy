@@ -28,6 +28,13 @@ and an [external policy service](#labels-and-moderation) hook.
 Requirements: Node 22+, pnpm, a Cloudflare account. The `cf` CLI is in
 technical preview at the time of writing.
 
+This checkout's deployment configuration is the EmDash registry CDN: Worker
+`blob-proxy`, scoped to `com.emdashcms.experimental.package.release`, with
+package and raster-image blob types enabled. Change `cloudflare.config.ts` if
+you are deploying Cumulus for another application; the checked-in KV namespace
+ID belongs to the EmDash CMS account, so remove its `id` to auto-provision a
+namespace elsewhere.
+
 ```sh
 git clone https://github.com/ascorbic/cumulus
 cd cumulus
@@ -36,7 +43,8 @@ pnpm cf auth login
 pnpm run deploy
 ```
 
-The first deploy provisions the KV namespace automatically and fails with
+With `bindings.kv()` and no `id`, the first deploy provisions a KV namespace
+automatically and fails with
 "required secrets have not been set" until the admin password exists. Create
 it with:
 
@@ -52,7 +60,7 @@ To serve from your own hostname, attach a custom domain on a zone in the
 same account (Cloudflare creates the DNS record and certificate):
 
 ```sh
-pnpm cf workers domains update --hostname cdn.example.com --service cumulus --zone-name example.com --zone-id <zone id>
+pnpm cf workers domains update --hostname cdn.example.com --service blob-proxy --zone-name example.com --zone-id <zone id>
 ```
 
 The cache is keyed by path, not host, so the warm cache carries over. The
@@ -122,9 +130,11 @@ GET  /img/{preset}/r/{did}/{collection}/{rkey}/{cid}[@format]
 `did` is `did:plc:…` or `did:web:…`; `cid` is a base32 CIDv1 (`bafkrei…`,
 raw codec, SHA-256). Any alias — uppercase CID, trailing slash,
 percent-encoded colons — redirects (301) to the one canonical URL so the
-cache holds exactly one entry per blob. Presets are Bluesky's:
+cache holds exactly one entry per blob. Presets include Bluesky's:
 `avatar` (1000×1000 cover), `banner` (3000×1000 cover), `feed_thumbnail`
-(2000×2000 inside), `feed_fullsize` (1000×1000 inside).
+(2000×2000 inside), `feed_fullsize` (1000×1000 inside); and EmDash registry
+presets: `registry_icon` (256×256 cover), `registry_banner` (1280×320 cover),
+and `registry_screenshot` (960×540 inside).
 
 Admin routes take HTTP Basic auth with any username and `ADMIN_PASSWORD`.
 They 404 when no password is configured.

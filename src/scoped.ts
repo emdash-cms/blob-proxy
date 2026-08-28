@@ -105,5 +105,15 @@ export async function admit(
 			}),
 		};
 	}
+	if (info.authenticatedBlobs.includes(ref.cid)) {
+		return {
+			kind: "deny",
+			response: errorResponse({
+				status: 403,
+				cacheControl: CACHE_CONTROL.noStore,
+				message: "Authenticated blobs are not served by this proxy",
+			}),
+		};
+	}
 	return { kind: "admit", tags: [record] };
 }

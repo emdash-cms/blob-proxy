@@ -28,6 +28,14 @@ describe("sniffMime", () => {
 		expect(sniffMime(ftyp("mif1", ["miaf", "avif"]))).toBe("image/avif");
 	});
 
+	it("detects gzip bundles", () => {
+		expect(sniffMime(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]))).toBe("application/gzip");
+		expect(sniff(new Uint8Array([0x1f, 0x8b, 0x08, 0x00]))).toEqual({
+			mime: "application/gzip",
+			ext: "gz",
+		});
+	});
+
 	it("falls back to octet-stream", () => {
 		expect(sniffMime(new Uint8Array(ascii("<svg xmlns=")))).toBe("application/octet-stream");
 		expect(sniffMime(ftyp("heic", ["mif1"]))).toBe("application/octet-stream");

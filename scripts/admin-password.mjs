@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const worker = process.argv[2] ?? "cumulus";
+const worker = process.argv[2] ?? "blob-proxy";
 const password = randomBytes(30).toString("base64url");
 const lines = existsSync(".env") ? readFileSync(".env", "utf8").split("\n") : [];
 const kept = lines.filter((line) => !line.startsWith("ADMIN_PASSWORD="));

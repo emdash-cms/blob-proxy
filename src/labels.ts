@@ -134,3 +134,22 @@ export function blobRefs(record: unknown, found = new Set<string>()): Set<string
 	for (const value of Object.values(object)) blobRefs(value, found);
 	return found;
 }
+
+/**
+ * Collects blob CIDs nested under an object marked `requiresAuth: true`.
+ * If the same CID appears in public and gated artifacts, the gated use wins.
+ */
+export function authenticatedBlobRefs(record: unknown, found = new Set<string>()): Set<string> {
+	if (Array.isArray(record)) {
+		for (const item of record) authenticatedBlobRefs(item, found);
+		return found;
+	}
+	if (typeof record !== "object" || record === null) return found;
+	const object = record as Record<string, unknown>;
+	if (object.requiresAuth === true) {
+		for (const cid of blobRefs(object)) found.add(cid);
+		return found;
+	}
+	for (const value of Object.values(object)) authenticatedBlobRefs(value, found);
+	return found;
+}

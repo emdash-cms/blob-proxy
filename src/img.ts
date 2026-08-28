@@ -13,6 +13,9 @@ export const PRESETS = {
 	banner: { fit: "cover", width: 3000, height: 1000 },
 	feed_thumbnail: { fit: "contain", width: 2000, height: 2000 },
 	feed_fullsize: { fit: "contain", width: 1000, height: 1000 },
+	registry_icon: { fit: "cover", width: 256, height: 256 },
+	registry_banner: { fit: "cover", width: 1280, height: 320 },
+	registry_screenshot: { fit: "contain", width: 960, height: 540 },
 } as const satisfies Record<string, ImageTransform>;
 
 export type Preset = keyof typeof PRESETS;

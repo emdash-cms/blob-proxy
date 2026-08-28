@@ -9,6 +9,7 @@ export const EXTENSIONS: Record<string, string> = {
 	"image/gif": "gif",
 	"image/webp": "webp",
 	"image/avif": "avif",
+	"application/gzip": "gz",
 	"application/octet-stream": "bin",
 };
 
@@ -22,6 +23,7 @@ const RIFF = ASCII("RIFF");
 const WEBP = ASCII("WEBP");
 const FTYP = ASCII("ftyp");
 const AVIF_BRANDS = new Set(["avif", "avis"]);
+const GZIP = [0x1f, 0x8b];
 
 function startsWith(bytes: Uint8Array, signature: number[], offset = 0): boolean {
 	if (bytes.length < offset + signature.length) return false;
@@ -50,6 +52,7 @@ export function sniffMime(bytes: Uint8Array): string {
 	if (startsWith(bytes, GIF87) || startsWith(bytes, GIF89)) return "image/gif";
 	if (startsWith(bytes, RIFF) && startsWith(bytes, WEBP, 8)) return "image/webp";
 	if (isAvif(bytes)) return "image/avif";
+	if (startsWith(bytes, GZIP)) return "application/gzip";
 	return "application/octet-stream";
 }
 

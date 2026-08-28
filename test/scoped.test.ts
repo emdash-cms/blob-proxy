@@ -74,7 +74,7 @@ describe("scoped mode", () => {
 		vi.restoreAllMocks();
 	});
 
-	function stubPds(blobs: string[], recordStatus = 200): void {
+	function stubPds(blobs: string[], recordStatus = 200, authenticated = false): void {
 		vi.spyOn(globalThis, "fetch").mockImplementation(
 			stubFetch({
 				"plc.directory": () => Response.json(didDocument()),
@@ -88,7 +88,10 @@ describe("scoped mode", () => {
 							uri: `at://${DID}/${COLLECTION}/${RKEY}`,
 							cid: "bafyreirecord",
 							value: {
-								images: blobs.map((cid) => ({ $type: "blob", ref: { $link: cid } })),
+								artifacts: blobs.map((cid) => ({
+									requiresAuth: authenticated,
+									blob: { $type: "blob", ref: { $link: cid } },
+								})),
 							},
 						});
 					}
@@ -119,6 +122,16 @@ describe("scoped mode", () => {
 		expect(response.headers.get("cache-tag")).toBe(
 			`did:${DID},cid:${CID},rec:${DID}/${COLLECTION}/${RKEY},${version}`,
 		);
+	});
+
+	it("refuses authenticated blobs without caching the denial", async () => {
+		restore = withEnv({ MODE: "scoped", SCOPED_COLLECTIONS: COLLECTION });
+		const cid = await cidFor(image);
+		stubPds([cid], 200, true);
+		const response = await get(`/r/${DID}/${COLLECTION}/${RKEY}/${cid}`);
+		expect(response.status).toBe(403);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(await response.text()).toBe("Authenticated blobs are not served by this proxy");
 	});
 
 	it("denies collections outside the allowlist without touching the PDS", async () => {
@@ -181,6 +194,7 @@ describe("Record entrypoint", () => {
 			uri: `at://${DID}/${COLLECTION}/${RKEY}`,
 			cid: "bafyreirecord",
 			blobs: ["bafkreiaaa"],
+			authenticatedBlobs: [],
 		});
 		expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
 		expect(response.headers.get("cache-tag")).toBe(

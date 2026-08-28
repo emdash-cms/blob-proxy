@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { loadConfig } from "../config.ts";
-import { blobRefs } from "../labels.ts";
+import { authenticatedBlobRefs, blobRefs } from "../labels.ts";
 import { isValidDid } from "../path.ts";
 import {
 	CACHE_CONTROL,
@@ -22,6 +22,7 @@ export interface RecordInfo {
 	uri: string;
 	cid: string;
 	blobs: string[];
+	authenticatedBlobs: string[];
 }
 
 export function isValidCollection(value: string): boolean {
@@ -111,6 +112,7 @@ export class Record extends WorkerEntrypoint<Env> {
 			uri: typeof body.uri === "string" ? body.uri : `at://${did}/${collection}/${rkey}`,
 			cid: typeof body.cid === "string" ? body.cid : "",
 			blobs: [...blobRefs(body.value)].map((cid) => cid.toLowerCase()),
+			authenticatedBlobs: [...authenticatedBlobRefs(body.value)].map((cid) => cid.toLowerCase()),
 		};
 		return jsonResponse(info, { cacheControl: RECORD_CACHE_CONTROL, tags });
 	}

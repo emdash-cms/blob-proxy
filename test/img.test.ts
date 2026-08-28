@@ -73,6 +73,10 @@ describe("parseImgPath", () => {
 			preset: "feed_thumbnail",
 			format: "jpeg",
 		});
+		expect(parseImgPath(`/img/registry_icon/plain/${DID}/${CID}`, "open")).toMatchObject({
+			kind: "img",
+			preset: "registry_icon",
+		});
 	});
 
 	it("redirects aliases to the canonical preset path", () => {
@@ -166,6 +170,18 @@ describe("/img route", () => {
 		expect(calls[0]!.transforms).toEqual([{ fit: "contain", width: 1000, height: 1000 }]);
 		expect(calls[0]!.output).toEqual({ format: "image/webp", anim: true });
 		expect(response.headers.get("content-disposition")).toBe(`inline; filename="${cid}.webp"`);
+	});
+
+	it("uses the registry screenshot thumbnail preset", async () => {
+		const calls: Call[] = [];
+		restore = withImages(fakeImages(calls));
+		stubOrigin();
+		const cid = await cidFor(image);
+		const response = await exports.default.fetch(
+			`${ORIGIN}/img/registry_screenshot/plain/${DID}/${cid}`,
+		);
+		expect(response.status).toBe(200);
+		expect(calls[0]!.transforms).toEqual([{ fit: "contain", width: 960, height: 540 }]);
 	});
 
 	it("passes the original's error responses through untouched", async () => {
