@@ -56,7 +56,8 @@ function isFormat(value: string): value is Format {
 
 /**
  * `/img/{preset}/plain/{did}/{cid}[@{format}]` (open mode) or
- * `/img/{preset}/r/{did}/{collection}/{rkey}/{cid}[@{format}]` (scoped mode),
+ * `/img/{preset}/r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}[@{format}]`
+ * (scoped mode),
  * canonicalised like the underlying blob path.
  */
 export function parseImgPath(pathname: string, mode: "open" | "scoped"): ImgPath {

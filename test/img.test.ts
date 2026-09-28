@@ -6,6 +6,7 @@ import { DID, PDS, cidFor, didDocument, pngBytes, stubFetch } from "./helpers.ts
 const ORIGIN = "https://cumulus.example";
 const PDS_HOST = new URL(PDS).hostname;
 const CID = "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku";
+const RECORD_CID = "bafyreirecord";
 const version = `v:${env.VERSION.id}`;
 
 interface Call {
@@ -58,6 +59,13 @@ function withImages(binding: ImagesBinding | undefined): () => void {
 	};
 }
 
+function withEnv(overrides: Record<string, string>): () => void {
+	const mutable = env as unknown as Record<string, string>;
+	const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, mutable[key]]));
+	Object.assign(mutable, overrides);
+	return () => Object.assign(mutable, previous);
+}
+
 describe("parseImgPath", () => {
 	it("parses canonical preset paths with optional format", () => {
 		expect(parseImgPath(`/img/avatar/plain/${DID}/${CID}`, "open")).toMatchObject({
@@ -91,10 +99,10 @@ describe("parseImgPath", () => {
 	});
 
 	it("parses scoped preset paths in scoped mode only", () => {
-		const scoped = `/img/avatar/r/${DID}/app.example.post/3k/${CID}`;
+		const scoped = `/img/avatar/r/${DID}/app.example.post/3k/${RECORD_CID}/${CID}`;
 		expect(parseImgPath(scoped, "scoped")).toMatchObject({
 			kind: "img",
-			original: `/r/${DID}/app.example.post/3k/${CID}`,
+			original: `/r/${DID}/app.example.post/3k/${RECORD_CID}/${CID}`,
 			tags: [`did:${DID}`, `cid:${CID}`, `rec:${DID}/app.example.post/3k`],
 		});
 		expect(
@@ -124,8 +132,10 @@ describe("parseImgPath", () => {
 describe("/img route", () => {
 	const image = pngBytes(512);
 	let restore: () => void;
+	let restoreEnv: () => void;
 	afterEach(() => {
 		restore?.();
+		restoreEnv?.();
 		vi.restoreAllMocks();
 	});
 
@@ -134,6 +144,22 @@ describe("/img route", () => {
 			stubFetch({
 				"plc.directory": () => Response.json(didDocument()),
 				[PDS_HOST]: () => new Response(image),
+			}),
+		);
+	}
+
+	function stubScopedOrigin(cid: string): void {
+		vi.spyOn(globalThis, "fetch").mockImplementation(
+			stubFetch({
+				"plc.directory": () => Response.json(didDocument()),
+				[PDS_HOST]: (url) =>
+					url.pathname === "/xrpc/com.atproto.repo.getRecord"
+						? Response.json({
+								uri: `at://${DID}/app.example.post/3k`,
+								cid: RECORD_CID,
+								value: { image: { $type: "blob", ref: { $link: cid } } },
+							})
+						: new Response(image),
 			}),
 		);
 	}
@@ -181,6 +207,21 @@ describe("/img route", () => {
 			`${ORIGIN}/img/registry_screenshot/plain/${DID}/${cid}`,
 		);
 		expect(response.status).toBe(200);
+		expect(calls[0]!.transforms).toEqual([{ fit: "contain", width: 960, height: 540 }]);
+	});
+
+	it("transforms a screenshot through exact record-scoped admission", async () => {
+		const calls: Call[] = [];
+		restore = withImages(fakeImages(calls));
+		restoreEnv = withEnv({ MODE: "scoped", SCOPED_COLLECTIONS: "app.example.post" });
+		const cid = await cidFor(image);
+		stubScopedOrigin(cid);
+		const response = await exports.default.fetch(
+			`${ORIGIN}/img/registry_screenshot/r/${DID}/app.example.post/3k/${RECORD_CID}/${cid}`,
+		);
+		expect(response.status).toBe(200);
+		expect(calls).toHaveLength(1);
+		expect(calls[0]!.input).toEqual(image);
 		expect(calls[0]!.transforms).toEqual([{ fit: "contain", width: 960, height: 540 }]);
 	});
 

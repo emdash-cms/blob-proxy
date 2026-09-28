@@ -123,8 +123,8 @@ Scoped mode replaces the blob and preset routes with record-scoped ones;
 the open routes 404:
 
 ```
-GET  /r/{did}/{collection}/{rkey}/{cid}
-GET  /img/{preset}/r/{did}/{collection}/{rkey}/{cid}[@format]
+GET  /r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}
+GET  /img/{preset}/r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}[@format]
 ```
 
 `did` is `did:plc:…` or `did:web:…`; `cid` is a base32 CIDv1 (`bafkrei…`,
@@ -218,9 +218,11 @@ on.
 
 `MODE=scoped` makes the proxy a private CDN for one app: a blob is served
 only at a URL naming the record that references it
-(`/r/{did}/{collection}/{rkey}/{cid}`), and only if the collection is in
-`SCOPED_COLLECTIONS` and the record really references that CID (checked
-live against the PDS, so a just-published record works immediately). A
+(`/r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}`), and only if the collection is in
+`SCOPED_COLLECTIONS`, the record CID is still current, and that record really references the
+blob CID (checked live against the PDS, so a just-published record works immediately). The legacy
+route without `{recordCid}` remains available for existing clients, but does not bind admission
+to an exact record revision. A
 Jetstream drain on the same cron purges a record's URLs when it is deleted
 or updated. Presets work the same way under `/img/{preset}/r/…`.
 
