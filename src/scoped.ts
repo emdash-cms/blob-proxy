@@ -9,6 +9,7 @@ export interface ScopedRef {
 	did: string;
 	collection: string;
 	rkey: string;
+	recordCid?: string;
 	cid: string;
 }
 
@@ -18,28 +19,48 @@ export type ScopedPath =
 	| { kind: "invalid" }
 	| { kind: "unknown" };
 
-/** `/r/{did}/{collection}/{rkey}/{cid}`, canonicalised like the blob path. */
+/**
+ * `/r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}`, with the legacy
+ * `/r/{did}/{collection}/{rkey}/{blobCid}` form retained for compatibility.
+ */
 export function parseScopedPath(pathname: string): ScopedPath {
 	const segments = pathname.split("/");
-	if (segments.length !== 6 || segments[0] !== "" || segments[1] !== "r")
+	if (
+		(segments.length !== 6 && segments.length !== 7) ||
+		segments[0] !== "" ||
+		segments[1] !== "r" ||
+		segments.at(-1) === ""
+	)
 		return { kind: "unknown" };
-	const [, , rawDid, collection, rkey, rawCid] = segments as [
-		string,
-		string,
-		string,
-		string,
-		string,
-		string,
-	];
+	const rawDid = segments[2]!;
+	const collection = segments[3]!;
+	const rkey = segments[4]!;
+	const rawRecordCid = segments.length === 7 ? segments[5]! : undefined;
+	const rawCid = segments.at(-1)!;
 	if (!isValidCollection(collection) || !isValidRkey(rkey)) return { kind: "invalid" };
 	const blob = parseBlobPath(`/${rawDid}/${rawCid}`);
 	if (blob.kind !== "blob" && blob.kind !== "redirect") return { kind: "invalid" };
 	const canonicalBlob = blob.kind === "blob" ? `/${blob.did}/${blob.cid}` : blob.location;
 	const [did, cid] = canonicalBlob.slice(1).split("/") as [string, string];
-	const canonical = `/r/${did}/${collection}/${rkey}/${cid}`;
+	let recordCid: string | undefined;
+	if (rawRecordCid !== undefined) {
+		const record = parseBlobPath(`/${did}/${rawRecordCid}`);
+		if (record.kind !== "blob" && record.kind !== "redirect") return { kind: "invalid" };
+		const canonicalRecord =
+			record.kind === "blob" ? `/${record.did}/${record.cid}` : record.location;
+		recordCid = canonicalRecord.slice(canonicalRecord.lastIndexOf("/") + 1);
+	}
+	const canonical = `/r/${did}/${collection}/${rkey}/${recordCid ? `${recordCid}/` : ""}${cid}`;
 	if (canonical !== pathname) return { kind: "redirect", location: canonical };
 	if (!CID_PATTERN.test(cid)) return { kind: "invalid" };
-	return { kind: "scoped", did, collection, rkey, cid };
+	return {
+		kind: "scoped",
+		did,
+		collection,
+		rkey,
+		...(recordCid ? { recordCid } : {}),
+		cid,
+	};
 }
 
 export type Admission = { kind: "admit"; tags: string[] } | { kind: "deny"; response: Response };
@@ -94,6 +115,17 @@ export async function admit(
 		};
 	}
 	const info = (await response.json()) as RecordInfo;
+	if (ref.recordCid !== undefined && info.cid !== ref.recordCid) {
+		return {
+			kind: "deny",
+			response: errorResponse({
+				status: 404,
+				cacheControl: CACHE_CONTROL.negative,
+				tags,
+				message: "Record revision not found",
+			}),
+		};
+	}
 	if (!info.blobs.includes(ref.cid)) {
 		return {
 			kind: "deny",

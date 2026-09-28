@@ -181,7 +181,7 @@ The pleasing property of the whole arrangement: **labels drive purges, the cache
 ```
 GET  /{did}/{cid}               blob (canonical, cached)
 GET  /img/{preset}/plain/{did}/{cid}@{format}   resized variant (§8a, optional)
-GET  /r/{did}/{collection}/{rkey}/{cid}         record-scoped blob (§8b, scoped mode)
+GET  /r/{did}/{collection}/{rkey}/{recordCid}/{blobCid} record-scoped blob (§8b, scoped mode)
 GET  /metadata/{did}/{cid}      blob metadata JSON (phase 4)
 POST /admin/purge/actor/{did}   auth'd purge (blobs + verdicts + identity)
 POST /admin/purge/blob/{cid}    auth'd purge
@@ -230,11 +230,11 @@ The tag design pays off a second time here: `purgeActor`/`purgeBlob` atomically 
 **Admission is a forward lookup, not a backlink check.** The URL carries the referencing record:
 
 ```
-GET /r/{did}/{collection}/{rkey}/{cid}
-GET /img/{preset}/r/{did}/{collection}/{rkey}/{cid}@{format}    (presets nest the record path in scoped mode)
+GET /r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}
+GET /img/{preset}/r/{did}/{collection}/{rkey}/{recordCid}/{blobCid}@{format}    (presets nest the record path in scoped mode)
 ```
 
-The app has the rkey in hand at render time, so the extra segments are free to generate. On miss: check `collection` against `SCOPED_COLLECTIONS` (exact NSIDs or prefix like `app.example.*`), fetch the record via `com.atproto.repo.getRecord` (its own cached entrypoint, `max-age=3600` — mutability is handled by purge, the TTL is a fallback), walk it for blob refs and require the requested `cid` to be among them, then run the standard §4 pipeline. No index, no scan, no third party on the admission path — and because `getRecord` goes straight to the PDS, a just-posted record serves immediately with no eventual-consistency window.
+The app has the rkey and record CID in hand at render time, so the extra segments are free to generate. On miss: check `collection` against `SCOPED_COLLECTIONS` (exact NSIDs or prefix like `app.example.*`), fetch the record via `com.atproto.repo.getRecord` (its own cached entrypoint, `max-age=3600` — mutability is handled by purge, the TTL is a fallback), require its CID to match `recordCid`, walk it for blob refs and require `blobCid` to be among them, then run the standard §4 pipeline. No index, no scan, no third party on the admission path — and because `getRecord` goes straight to the PDS, a just-posted record serves immediately with no eventual-consistency window. The legacy route without `recordCid` remains available for compatibility, but only the current route binds admission to an exact record revision.
 
 **Record↔blob is many-to-many, and the design leans on that.** A record can reference several blobs (a post carries up to four images; a video embed has the video plus caption-file blobs; an external embed has a thumb; a profile has avatar and banner) — the admission check is therefore membership (`cid ∈ blobRefs(record)`), never equality. And one blob can be referenced by many records in the same repo — the PDS refcounts blobs and garbage-collects them when the last reference goes. Under this URL scheme the many-to-one direction resolves itself: each referencing record is a distinct URL, hence a distinct cache entry with its own admission. Delete record A while record B still references the blob: A's URLs die, B's keep serving. The cost is that a shared blob may be cached once per referencing record — accepted duplication, bounded by how much your app actually reuses blobs.
 

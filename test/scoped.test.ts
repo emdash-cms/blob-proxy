@@ -8,6 +8,7 @@ import { DID, PDS, cidFor, didDocument, pngBytes, stubFetch } from "./helpers.ts
 const ORIGIN = "https://cumulus.example";
 const PDS_HOST = new URL(PDS).hostname;
 const CID = "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku";
+const RECORD_CID = "bafyreirecord";
 const COLLECTION = "app.example.post";
 const RKEY = "3k2abc";
 const version = `v:${env.VERSION.id}`;
@@ -46,6 +47,14 @@ describe("config", () => {
 
 describe("parseScopedPath", () => {
 	it("parses and canonicalises record-scoped paths", () => {
+		expect(parseScopedPath(`/r/${DID}/${COLLECTION}/${RKEY}/${RECORD_CID}/${CID}`)).toEqual({
+			kind: "scoped",
+			did: DID,
+			collection: COLLECTION,
+			rkey: RKEY,
+			recordCid: RECORD_CID,
+			cid: CID,
+		});
 		expect(parseScopedPath(`/r/${DID}/${COLLECTION}/${RKEY}/${CID}`)).toEqual({
 			kind: "scoped",
 			did: DID,
@@ -56,6 +65,14 @@ describe("parseScopedPath", () => {
 		expect(parseScopedPath(`/r/${DID}/${COLLECTION}/${RKEY}/${CID.toUpperCase()}`)).toEqual({
 			kind: "redirect",
 			location: `/r/${DID}/${COLLECTION}/${RKEY}/${CID}`,
+		});
+		expect(
+			parseScopedPath(
+				`/r/${DID}/${COLLECTION}/${RKEY}/${RECORD_CID.toUpperCase()}/${CID.toUpperCase()}`,
+			),
+		).toEqual({
+			kind: "redirect",
+			location: `/r/${DID}/${COLLECTION}/${RKEY}/${RECORD_CID}/${CID}`,
 		});
 		expect(parseScopedPath(`/r/${DID}/${COLLECTION}/${RKEY}/${CID}/`)).toEqual({ kind: "unknown" });
 		expect(parseScopedPath(`/r/${DID}/not valid/${RKEY}/${CID}`)).toEqual({ kind: "invalid" });
@@ -113,6 +130,26 @@ describe("scoped mode", () => {
 		);
 	});
 
+	it("serves a blob only for the requested exact record revision", async () => {
+		restore = withEnv({ MODE: "scoped", SCOPED_COLLECTIONS: COLLECTION });
+		const cid = await cidFor(image);
+		stubPds([cid]);
+		const response = await get(`/r/${DID}/${COLLECTION}/${RKEY}/${RECORD_CID}/${cid}`);
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-type")).toBe("image/png");
+	});
+
+	it("fails closed when the requested record revision is no longer current", async () => {
+		restore = withEnv({ MODE: "scoped", SCOPED_COLLECTIONS: COLLECTION });
+		const cid = await cidFor(image);
+		stubPds([cid]);
+		const response = await get(`/r/${DID}/${COLLECTION}/${RKEY}/bafyreiolder/${cid}`);
+		expect(response.status).toBe(404);
+		expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+		expect(response.headers.get("cache-tag")).toContain(`rec:${DID}/${COLLECTION}/${RKEY}`);
+		expect(await response.text()).toBe("Record revision not found");
+	});
+
 	it("denies a blob the record does not reference", async () => {
 		restore = withEnv({ MODE: "scoped", SCOPED_COLLECTIONS: COLLECTION });
 		stubPds(["bafkreiother"]);
@@ -160,6 +197,7 @@ describe("scoped mode", () => {
 		restore();
 		restore = withEnv({ MODE: "open" });
 		expect((await get(`/r/${DID}/${COLLECTION}/${RKEY}/${CID}`)).status).toBe(404);
+		expect((await get(`/r/${DID}/${COLLECTION}/${RKEY}/${RECORD_CID}/${CID}`)).status).toBe(404);
 		expect((await get(`/img/avatar/r/${DID}/${COLLECTION}/${RKEY}/${CID}`)).status).toBe(404);
 	});
 
